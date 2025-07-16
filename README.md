@@ -9,13 +9,13 @@ This project implements a real-time **Indoor Positioning System** for tracking t
 
 ## 📦 Features
 
-- ✅ **Real-time tracking** of multiple mobile carts (e.g., Cart1, Cart2)
+- ✅ **Real-time tracking** of multiple mobile carts ( Cart1, Cart2)
 - 📶 **RSSI-based trilateration** from 3 out of 4 fixed Wi-Fi APs
 - 🧠 **Kalman Filter** for smoothing noisy RSSI signals
 - 🔄 Continuous **data sync with Firebase** (bi-directional)
-- 🌐 **Web-based dashboard** with interactive indoor map
+- 🌐 **Web-based dashboard (HTML Application)** with interactive indoor map
 - 📊 **CSV logging** for Cart1 data (timestamped)
-- ⚠️ Automatic **offline detection** when RSSI = -999 for all APs
+- ⚠️ Automatic **offline detection** 
 
 ---
 
