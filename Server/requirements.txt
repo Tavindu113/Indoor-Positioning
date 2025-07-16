@@ -1,0 +1,6 @@
+firebase-admin
+filterpy
+numpy
+scipy
+
+***include both Firebase key.json files here

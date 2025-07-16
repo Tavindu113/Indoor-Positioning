@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Indoor Positioning App - Two Carts</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+        header {
+            background-color: #3c95b8;
+            height: 80px;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            flex-shrink: 0;
+        }
+        header img {
+            height: 60px;
+            width: auto;
+            margin-right: 20px;
+        }
+        header h1 {
+            color: white;
+            margin: 0;
+            font-size: 24px;
+            flex-grow: 1;
+            text-align: center;
+        }
+        #map-section {
+            flex: 1;
+            display: flex;
+            flex-direction: row;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 10px;
+        }
+        #canvas-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        #canvas-wrapper {
+            width: 1080px;
+            height: 750px;
+            overflow: auto;
+            border: 1px solid #ccc;
+        }
+        canvas {
+            background-color: #ffffff;
+            width: 1080px;
+            height: 750px;
+            display: block;
+        }
+        #cart-positions {
+            width: 200px;
+            padding: 10px;
+            font-size: 16px;
+            line-height: 1.5;
+            text-align: left;
+        }
+        #legend {
+            width: 200px;
+            padding: 10px;
+            font-size: 14px;
+            line-height: 1.5;
+            text-align: left;
+            border-top: 1px solid #ccc;
+            margin-top: 10px;
+        }
+        #legend h3 {
+            margin: 0 0 10px 0;
+            font-size: 16px;
+        }
+        #legend ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        #legend li {
+            margin-bottom: 5px;
+        }
+        button {
+            padding: 5px 10px;
+            margin: 0 5px;
+            font-size: 14px;
+            cursor: pointer;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 3px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <img src="https://yt3.googleusercontent.com/ytc/AIdro_nWuBRetLKpdZq_RNqBmJ2ykusnx347m645MexYngNDtQ=s900-c-k-c0x00ffffff-no-rj" alt="DMIE Logo">
+        <h1>RealTime Indoor Positioning Application</h1>
+    </header>
+    <div id="map-section">
+        <div id="cart-positions">
+            <div id="cart1-pos">Cart 1: (0, 0) m, 0 kg</div>
+            <div id="cart2-pos">Cart 2: (0, 0) m, 0 kg</div>
+            <div id="legend">
+                <h3>Legend</h3>
+                <ul>
+                    <li>1: CNC Turning Center</li>
+                    <li>2: CNC Machine</li>
+                    <li>3: CNC Milling</li>
+                    <li>4: Injection Molding Machine</li>
+                    <li>5: Wire Cut EDM</li>
+                    <li>6: Laser Cutting Machine</li>
+                </ul>
+            </div>
+        </div>
+        <div id="canvas-container">
+            <div id="controls">
+                <button id="zoom-in">Zoom In</button>
+                <button id="zoom-out">Zoom Out</button>
+            </div>
+            <div id="canvas-wrapper">
+                <canvas id="myCanvas" width="1080" height="750"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/8.0.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.0.0/firebase-database.js"></script>
+    <script>
+        const firebaseConfig = {
+            apiKey: "your-api-key",
+            authDomain: "your-auth-domain.firebaseapp.com",
+            databaseURL: "your -database-url",
+            projectId: "your-project-id",
+            storageBucket: "your-storage-bucket.appspot.com",
+            messagingSenderId: "your-messaging-sender-id",
+            appId: "your-app-id",
+            measurementId: "your-measurement-id"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const cartRef = database.ref("Location_DMIE_Ground_Positions");
+
+        const canvas = document.getElementById("myCanvas");
+        const ctx = canvas.getContext("2d");
+
+        let scale = 1.0;
+        const scaleStep = 0.1;
+        const minScale = 0.5;
+        const maxScale = 2.0;
+
+        const outlineWalls = [
+            [[366, 740], [366, 115]],
+            [[366, 115], [304, 115]],
+            [[304, 115], [304, 2]],
+            [[304, 2], [515, 2]],
+            [[565, 2], [776, 2]],
+            [[776, 2], [776, 115]],
+            [[776, 115], [714, 115]],
+            [[714, 115], [714, 740]],
+            [[714, 740], [366, 740]]
+        ];
+
+        const innerWalls = [
+            [[489, 740], [489, 638]],
+            [[489, 613], [489, 262]],
+            [[489, 237], [489, 177]],
+            [[489, 177], [366, 177]],
+            [[714, 700], [591, 700]],
+            [[591, 700], [591, 619]],
+            [[591, 569], [591, 278]],
+            [[591, 228], [591, 177]],
+            [[591, 177], [714, 177]],
+            [[591, 438], [714, 438]],
+            [[652, 177], [652, 140]],
+            [[366, 115], [515, 115]],
+            [[565, 115], [714, 115]],
+            [[489, 115], [489, 83]],
+            [[489, 33], [489, 2]],
+            [[591, 33], [591, 2]],
+            [[591, 83], [591, 115]]
+        ];
+
+        const greenLines = [
+            [[465, 740], [465, 177]],
+            [[465, 639], [366, 639]],
+            [[465, 497], [366, 497]],
+            [[465, 389], [366, 389]],
+            [[465, 318], [366, 318]],
+            [[465, 224], [366, 224]]
+        ];
+
+        const markers = [
+            { number: 1, x: 415.5, y: 689.5 },
+            { number: 2, x: 415.5, y: 568 },
+            { number: 3, x: 415.5, y: 443 },
+            { number: 4, x: 415.5, y: 353.5 },
+            { number: 5, x: 415.5, y: 271 },
+            { number: 6, x: 415.5, y: 200.5 }
+        ];
+
+        function drawWalls() {
+            ctx.strokeStyle = "black";
+            ctx.lineWidth = 5 / scale;
+            outlineWalls.forEach(wall => {
+                ctx.beginPath();
+                ctx.moveTo(wall[0][0], 750 - wall[0][1]);
+                ctx.lineTo(wall[1][0], 750 - wall[1][1]);
+                ctx.stroke();
+            });
+
+            ctx.strokeStyle = "#808080";
+            ctx.lineWidth = 2 / scale;
+            innerWalls.forEach(wall => {
+                ctx.beginPath();
+                ctx.moveTo(wall[0][0], 750 - wall[0][1]);
+                ctx.lineTo(wall[1][0], 750 - wall[1][1]);
+                ctx.stroke();
+            });
+        }
+
+        function drawGreenLines() {
+            ctx.strokeStyle = "green";
+            ctx.lineWidth = 2 / scale;
+            greenLines.forEach(line => {
+                ctx.beginPath();
+                ctx.moveTo(line[0][0], 750 - line[0][1]);
+                ctx.lineTo(line[1][0], 750 - line[1][1]);
+                ctx.stroke();
+            });
+        }
+
+        function drawMarkers() {
+            ctx.fillStyle = "black";
+            ctx.font = `${12 / scale}px Arial`;
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            markers.forEach(marker => {
+                ctx.fillText(marker.number, marker.x, 750 - marker.y);
+            });
+        }
+
+        function drawScene(cart1X, cart1Y, cart2X, cart2Y) {
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            ctx.translate(canvas.width / 2, canvas.height / 2);
+            ctx.scale(scale, scale);
+            ctx.translate(-canvas.width / 2, -canvas.height / 2);
+
+            drawWalls();
+            drawGreenLines();
+            drawMarkers();
+
+            // Draw Cart 1
+            ctx.fillStyle = "blue";
+            ctx.beginPath();
+            ctx.arc(cart1X, 750 - cart1Y, 10 / scale, 0, 2 * Math.PI);
+            ctx.fill();
+
+            // Draw Cart 2
+            ctx.fillStyle = "red";
+            ctx.beginPath();
+            ctx.arc(cart2X, 750 - cart2Y, 10 / scale, 0, 2 * Math.PI);
+            ctx.fill();
+        }
+
+        function updateCartPositions(cart1X, cart1Y, cart2X, cart2Y) {
+            const metersPerPoint = 0.039715;
+
+            const cart1X_meters = cart1X * metersPerPoint;
+            const cart1Y_meters = cart1Y * metersPerPoint;
+            const cart2X_meters = cart2X * metersPerPoint;
+            const cart2Y_meters = cart2Y * metersPerPoint;
+
+            document.getElementById("cart1-pos").textContent = 
+                `Cart 1: (${cart1X_meters.toFixed(2)}, ${cart1Y_meters.toFixed(2)}) m, 8.00 kg`;
+            document.getElementById("cart2-pos").textContent = 
+                `Cart 2: (${cart2X_meters.toFixed(2)}, ${cart2Y_meters.toFixed(2)}) m, 10.00 kg`;
+        }
+
+        document.getElementById("zoom-in").addEventListener("click", () => {
+            if (scale < maxScale) {
+                scale += scaleStep;
+                updateScene();
+            }
+        });
+
+        document.getElementById("zoom-out").addEventListener("click", () => {
+            if (scale > minScale) {
+                scale -= scaleStep;
+                updateScene();
+            }
+        });
+
+        let latestData = {
+            cart1: { x: 145, y: 502.5 },
+            cart2: { x: 315, y: 302.5 }
+        };
+
+        function updateScene() {
+            drawScene(latestData.cart1.x, latestData.cart1.y, latestData.cart2.x, latestData.cart2.y);
+            updateCartPositions(latestData.cart1.x, latestData.cart1.y, latestData.cart2.x, latestData.cart2.y);
+        }
+
+        cartRef.on("value", (snapshot) => {
+            const data = snapshot.val();
+            if (data && data.cart1 && data.cart2) {
+                latestData = {
+                    cart1: { x: data.cart1.x || 145, y: data.cart1.y || 502.5 },
+                    cart2: { x: data.cart2.x || 315, y: data.cart2.y || 302.5 }
+                };
+            }
+            updateScene();
+        }, (error) => {
+            console.error("Firebase error:", error);
+            updateScene();
+        });
+    </script>
+</body>
+</html>
